@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 	"log"
 	"net/http"
 	"net/smtp"
@@ -198,68 +199,68 @@ func handleEmailSend(w http.ResponseWriter, r *http.Request) {
 
 	// Compose the email with HTML content
 	emailSubject := "New Message From Your Portfolio: " + subject
-	emailBody := fmt.Sprintf(`
-	<html>
-	<head>
-		<title>Someone has contucted you from your portfolio</title>
-		<style>
-			body {
-				font-family: Arial, sans-serif;
-				color: #333;
-			}
-			.container {
-				max-width: 600px;
-				margin: 0 auto;
-				padding: 20px;
-				background: #f8f8f8;
-				border-radius: 8px;
-				box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-			}
-			.header {
-				background-color: #2196f3;
-				color: white;
-				padding: 10px 20px;
-				text-align: center;
-				border-radius: 8px 8px 0 0;
-			}
-			.footer {
-				background-color: #f1f1f1;
-				padding: 10px;
-				text-align: center;
-				margin-top: 20px;
-				font-size: 12px;
-				color: #888;
-				border-radius: 0 0 8px 8px;
-			}
-			.content {
-				padding: 20px;
-				background-color: white;
-				border-radius: 8px;
-			}
-			.content p {
-				font-size: 16px;
-				line-height: 1.5;
-			}
-		</style>
-	</head>
-	<body>
-		<div class="container">
-			<div class="header">
-				<h2>New Message From Your Portfolio</h2>
-			</div>
-			<div class="content">
-				<p><strong>Name:</strong> %s</p>
-				<p><strong>Email:</strong> %s</p>
-				<p><strong>Subject:</strong> %s</p>
-				<p><strong>Message:</strong><br>%s</p>
-			</div>
-			<div class="footer">
-				<p>&copy; 2024 somuloportfolio. All rights reserved.</p>
-			</div>
-		</div>
-	</body>
-	</html>
-	`, name, email, subject, message)
+emailBody := fmt.Sprintf(`
+<html>
+<head>
+<title>Someone has contacted you from your portfolio</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  color: #333;
+}
+.container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+  background: #f8f8f8;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+.header {
+  background-color: #2196f3;
+  color: white;
+  padding: 10px 20px;
+  text-align: center;
+  border-radius: 8px 8px 0 0;
+}
+.footer {
+  background-color: #f1f1f1;
+  padding: 10px;
+  text-align: center;
+  margin-top: 20px;
+  font-size: 12px;
+  color: #888;
+  border-radius: 0 0 8px 8px;
+}
+.content {
+  padding: 20px;
+  background-color: white;
+  border-radius: 8px;
+}
+.content p {
+  font-size: 16px;
+  line-height: 1.5;
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h2>New Message From Your Portfolio</h2>
+  </div>
+  <div class="content">
+    <p><strong>Name:</strong> %s</p>
+    <p><strong>Email:</strong> %s</p>
+    <p><strong>Subject:</strong> %s</p>
+    <p><strong>Message:</strong><br>%s</p>
+  </div>
+  <div class="footer">
+    <p>&copy; %d somuloportfolio. All rights reserved.</p>
+  </div>
+</div>
+</body>
+</html>
+`, name, email, subject, message, time.Now().Year())
 
 	// Compose the email message
 	msg := []byte(fmt.Sprintf("To: %s\r\nSubject: %s\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n%s", to, emailSubject, emailBody))
@@ -282,39 +283,35 @@ func handleEmailSend(w http.ResponseWriter, r *http.Request) {
 	// Send the confirmation HTML page
 	fmt.Fprintf(w, `
 	<html>
-    <head>
-        <title>Message Confirmation</title>
-        <link rel="stylesheet" href="css/popup_submeet.css">
-    </head>
-    <body>
-        <div class="confirmation custom-confirmation">
-            <h2>Your Message Has Been Sent!</h2>
-            <p>Thank you, %s, for your message. The following details have been received:</p>
-            <ul>
-                <li><strong>Name:</strong> %s</li>
-                <li><strong>Email:</strong> %s</li>
-                <li><strong>Subject:</strong> %s</li>
-                <li><strong>Message:</strong> %s</li>
-            </ul>
-            <button class="back-button custom-back-button" onclick="javascript:history.back()">Go Back</button>
-			<div class="footer">
-			<p align="center" >&copy; 2024 samuel omulo. All rights reserved.</p>
+	<head>
+	<title>Message Confirmation</title>
+	<link rel="stylesheet" href="css/popup_submeet.css">
+	</head>
+	<body>
+	<div class="confirmation custom-confirmation">
+	<h2>Your Message Has Been Sent!</h2>
+	<p>Thank you, %s, for your message. The following details have been received:</p>
+	<ul>
+	<li><strong>Name:</strong> %s</li>
+	<li><strong>Email:</strong> %s</li>
+	<li><strong>Subject:</strong> %s</li>
+	<li><strong>Message:</strong> %s</li>
+	</ul>
+	<button class="back-button custom-back-button" onclick="javascript:history.back()">Go Back</button>
+	<div class="footer">
+	<p align="center">&copy; %d samuel omulo. All rights reserved.</p>
 	</div>
-        </div>
-		
-    </body>
-	
-
-</html>
-	`, name, name, email, subject, message)
-}
+	</div>
+	</body>
+	</html>
+	`, name, name, email, subject, message, time.Now().Year())
+	}
 
 // func handleAppointment(w http.ResponseWriter, r *http.Request) {
 // 	if r.Method != http.MethodPost {
 // 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 // 		return
 // 	}
-
 // 	// Parse form data
 // 	err := r.ParseForm()
 // 	if err != nil {
