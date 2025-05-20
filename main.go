@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"time"
 	"log"
 	"net/http"
 	"net/smtp"
@@ -10,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"text/template"
+	"time"
 
 	"github.com/microcosm-cc/bluemonday"
 )
@@ -128,10 +128,10 @@ func handleresume(w http.ResponseWriter, r *http.Request) {
 // }
 
 // // Testimonial page handler
-// func handleTestimonial(w http.ResponseWriter, r *http.Request) {
-// 	renderTemplate(w, "testimonial.html")
-// }
-
+//
+//	func handleTestimonial(w http.ResponseWriter, r *http.Request) {
+//		renderTemplate(w, "testimonial.html")
+//	}
 func handleEmailSend(w http.ResponseWriter, r *http.Request) {
 	// Only allow POST method
 	if r.Method != http.MethodPost {
@@ -158,29 +158,26 @@ func handleEmailSend(w http.ResponseWriter, r *http.Request) {
 	// Validate Name (letters, spaces, hyphens, apostrophes, accents)
 	nameRegex := `^[a-zA-Z\sÀ-ÿ'-]+$`
 	if !regexp.MustCompile(nameRegex).MatchString(name) {
-		http.Error(w, "Invalid name", http.StatusBadRequest)
+		http.Error(w, "Invalid name format", http.StatusBadRequest)
 		return
 	}
 
 	// Validate Email
 	emailRegex := `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
 	if !regexp.MustCompile(emailRegex).MatchString(email) {
-		http.Error(w, "Invalid email address", http.StatusBadRequest)
+		http.Error(w, "Invalid email address format", http.StatusBadRequest)
 		return
 	}
 
-	// Validate Subject (Alphanumeric and space, 1-100 characters)
-	subjectRegex := `^[a-zA-Z0-9\s]+$`
-	if !regexp.MustCompile(subjectRegex).MatchString(subject) {
-		http.Error(w, "Invalid subject", http.StatusBadRequest)
+	// Validate Subject (Allow more characters but with reasonable length)
+	if len(subject) < 2 || len(subject) > 100 {
+		http.Error(w, "Subject must be between 2-100 characters", http.StatusBadRequest)
 		return
 	}
 
-	// Validate Message Length (1-500 characters)
-	messageRegex := `^[a-zA-Z0-9\s.,!?-]+$`
-
-	if !regexp.MustCompile(messageRegex).MatchString(message) {
-		http.Error(w, "Invalid message", http.StatusBadRequest)
+	// Validate Message (Allow more types of characters for better communication)
+	if len(message) < 10 || len(message) > 2000 {
+		http.Error(w, "Message must be between 10-2000 characters", http.StatusBadRequest)
 		return
 	}
 
@@ -192,21 +189,27 @@ func handleEmailSend(w http.ResponseWriter, r *http.Request) {
 
 	// Configure email settings
 	from := "mcomulosammy37@gmail.com"
-	password := "inss cfcv agtz njhn" // Use an app-specific password for Gmail
+	password := "inss cfcv agtz njhn" // Consider using environment variables for this
 	to := "mcomulosammy37@gmail.com"
 	smtpHost := "smtp.gmail.com"
 	smtpPort := "587"
 
-	// Compose the email with HTML content
-	emailSubject := "New Message From Your Portfolio: " + subject
-emailBody := fmt.Sprintf(`
+	// Record the timestamp for consistent use
+	currentTime := time.Now()
+	formattedDate := currentTime.Format("January 2, 2006")
+
+	// Compose the admin notification email
+	adminEmailSubject := "New Portfolio Inquiry: " + subject
+	adminEmailBody := fmt.Sprintf(`
 <html>
 <head>
-<title>Someone has contacted you from your portfolio</title>
+<title>New Portfolio Inquiry</title>
 <style>
 body {
   font-family: Arial, sans-serif;
-  color: #333;
+  color: rgb(15, 15, 15);
+  margin: 0;
+  padding: 0;
 }
 .container {
   max-width: 600px;
@@ -219,280 +222,284 @@ body {
 .header {
   background-color: #2196f3;
   color: white;
-  padding: 10px 20px;
+  padding: 15px 20px;
   text-align: center;
   border-radius: 8px 8px 0 0;
 }
 .footer {
   background-color: #f1f1f1;
-  padding: 10px;
+  padding: 15px;
   text-align: center;
   margin-top: 20px;
   font-size: 12px;
-  color: #888;
+  color: #777;
   border-radius: 0 0 8px 8px;
 }
 .content {
-  padding: 20px;
+  padding: 25px;
   background-color: white;
-  border-radius: 8px;
+  border-radius: 4px;
+  margin: 15px 0;
 }
 .content p {
   font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.6;
+  margin: 10px 0;
+}
+.metadata {
+  background-color: #f9f9f9;
+  padding: 10px 15px;
+  border-radius: 4px;
+  margin-top: 20px;
+  font-size: 13px;
+  color: #666;
 }
 </style>
 </head>
 <body>
 <div class="container">
   <div class="header">
-    <h2>New Message From Your Portfolio</h2>
+    <h2>New Portfolio Inquiry</h2>
   </div>
   <div class="content">
     <p><strong>Name:</strong> %s</p>
     <p><strong>Email:</strong> %s</p>
     <p><strong>Subject:</strong> %s</p>
-    <p><strong>Message:</strong><br>%s</p>
+    <p><strong>Message:</strong></p>
+    <p style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #2196f3; margin: 15px 0;">%s</p>
+  </div>
+  <div class="metadata">
+    <p>Received: %s</p>
+    <p>IP Address: %s (for security monitoring)</p>
   </div>
   <div class="footer">
-    <p>&copy; %d somuloportfolio. All rights reserved.</p>
+    <p>&copy; %d Samuel Omulo Portfolio. All rights reserved.</p>
   </div>
 </div>
 </body>
 </html>
-`, name, email, subject, message, time.Now().Year())
+`, name, email, subject, message, formattedDate, r.RemoteAddr, currentTime.Year())
 
-	// Compose the email message
-	msg := []byte(fmt.Sprintf("To: %s\r\nSubject: %s\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n%s", to, emailSubject, emailBody))
+	// Compose the client confirmation email
+	clientEmailSubject := "Thank you for contacting Samuel Omulo"
+	clientEmailBody := fmt.Sprintf(`
+<html>
+<head>
+<title>Thank You for Your Message</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  color: #333;
+  margin: 0;
+  padding: 0;
+}
+.container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+  background: #f8f8f8;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+.header {
+  background-color: #2196f3;
+  color: white;
+  padding: 15px 20px;
+  text-align: center;
+  border-radius: 8px 8px 0 0;
+}
+.logo {
+  max-width: 100px;
+  margin: 0 auto 15px;
+  display: block;
+}
+.footer {
+  background-color: #f1f1f1;
+  padding: 15px;
+  text-align: center;
+  margin-top: 20px;
+  font-size: 12px;
+  color: #777;
+  border-radius: 0 0 8px 8px;
+}
+.content {
+  padding: 25px;
+  background-color: white;
+  border-radius: 4px;
+  margin: 15px 0;
+  line-height: 1.6;
+}
+.message-summary {
+  background-color: #f9f9f9;
+  padding: 15px;
+  border-radius: 4px;
+  margin: 20px 0;
+}
+.signature {
+  margin-top: 30px;
+  padding-top: 15px;
+  border-top: 1px solid #eee;
+}
+.social-links {
+  margin-top: 15px;
+}
+.social-links a {
+  color: #2196f3;
+  margin: 0 5px;
+  text-decoration: none;
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h2>Thank You for Your Message</h2>
+  </div>
+  <div class="content">
+    <p>Dear %s,</p>
+    
+    <p>Thank you for reaching out through my portfolio website. I have received your message regarding <strong>"%s"</strong> and appreciate your interest in my services.</p>
+    
+    <p>I will review your inquiry and respond as soon as possible, typically within 24-48 hours during business days.</p>
+    
+    <div class="message-summary">
+      <p><strong>Your message details:</strong></p>
+      <p><strong>Date:</strong> %s</p>
+      <p><strong>Subject:</strong> %s</p>
+      <p><strong>Message:</strong> %s</p>
+    </div>
+    
+    <p>If you have any urgent matters or additional information to share, please feel free to reply to this email.</p>
+    
+    <div class="signature">
+      <p>Best regards,</p>
+      <p><strong>Samuel Omulo</strong></p>
+      <p>Professional Software Developer</p>
+      <div class="social-links">
+        <a href="https://linkedin.com/in/yourprofile">LinkedIn</a> | 
+        <a href="https://github.com/somulo1">GitHub</a>
+      </div>
+    </div>
+  </div>
+  <div class="footer">
+    <p>&copy; %d Samuel Omulo. All rights reserved.</p>
+  </div>
+</div>
+</body>
+</html>
+`, name, subject, formattedDate, subject, message, currentTime.Year())
 
-	// Authentication
+	// Set up authentication
 	auth := smtp.PlainAuth("", from, password, smtpHost)
 
-	// Send email
-	err = smtp.SendMail(smtpHost+":"+smtpPort, auth, from, []string{to}, msg)
+	// Send email to admin (yourself)
+	adminMsg := []byte(fmt.Sprintf("To: %s\r\nSubject: %s\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n%s",
+		to, adminEmailSubject, adminEmailBody))
+
+	err = smtp.SendMail(smtpHost+":"+smtpPort, auth, from, []string{to}, adminMsg)
 	if err != nil {
-		log.Printf("Error sending email: %v", err)
-		http.Error(w, "Failed to send email", http.StatusInternalServerError)
+		log.Printf("Error sending admin notification email: %v", err)
+		http.Error(w, "Failed to process your request", http.StatusInternalServerError)
 		return
 	}
 
-	// Respond back with a success message in HTML format
+	// Send confirmation email to the client
+	clientMsg := []byte(fmt.Sprintf("To: %s\r\nSubject: %s\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n%s",
+		email, clientEmailSubject, clientEmailBody))
+
+	err = smtp.SendMail(smtpHost+":"+smtpPort, auth, from, []string{email}, clientMsg)
+	if err != nil {
+		log.Printf("Error sending client confirmation email: %v", err)
+		// Continue even if client email fails, as we already received the message
+	}
+
+	// Return a professional confirmation page to the user
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 
-	// Send the confirmation HTML page
 	fmt.Fprintf(w, `
+	<!DOCTYPE html>
 	<html>
 	<head>
-	<title>Message Confirmation</title>
+	<title>Message Submitted Successfully</title>
 	<link rel="stylesheet" href="css/popup_submeet.css">
+	<style>
+		.confirmation {
+			max-width: 600px;
+			margin: 50px auto;
+			padding: 30px;
+			background: #fff;
+			border-radius: 8px;
+			box-shadow: 0 5px 15px rgba(255, 255, 255, 0.1);
+			text-align: center;
+		}
+		p {
+			font-size: 18px;
+			color: rgb(0, 0, 0);
+			}
+		p1 {
+			font-size: 18px;
+			color: rgb(255, 255, 255);
+			}	
+		h2 {
+			color: #2196f3;
+			margin-bottom: 20px;
+		}
+		.message-details {
+			background:rgb(0, 0, 0);
+			padding: 20px;
+			border-radius: 6px;
+			margin: 20px 0;
+			text-align: left;
+		}
+		.message-details p {
+			margin: 10px 0;
+		}
+		.success-icon {
+			font-size: 60px;
+			color: #4CAF50;
+			margin-bottom: 20px;
+		}
+		.back-button {
+			background: #2196f3;
+			color: white;
+			border: none;
+			padding: 12px 24px;
+			border-radius: 4px;
+			cursor: pointer;
+			font-size: 16px;
+			margin-top: 20px;
+			transition: background 0.3s;
+		}
+		.back-button:hover {
+			background: #0b7dda;
+		}
+		.footer {
+			margin-top: 30px;
+			font-size: 14px;
+			color: #777;
+		}
+	</style>
 	</head>
 	<body>
-	<div class="confirmation custom-confirmation">
-	<h2>Your Message Has Been Sent!</h2>
-	<p>Thank you, %s, for your message. The following details have been received:</p>
-	<ul>
-	<li><strong>Name:</strong> %s</li>
-	<li><strong>Email:</strong> %s</li>
-	<li><strong>Subject:</strong> %s</li>
-	<li><strong>Message:</strong> %s</li>
-	</ul>
-	<button class="back-button custom-back-button" onclick="javascript:history.back()">Go Back</button>
-	<div class="footer">
-	<p align="center">&copy; %d samuel omulo. All rights reserved.</p>
-	</div>
+	<div class="confirmation">
+		<div class="success-icon">✓</div>
+		<h2>Message Sent Successfully!</h2>
+		<p>Thank you for reaching out, %s. I've received your message and will respond shortly.</p>
+		<p>A confirmation email has been sent to <strong>%s</strong>.</p>
+		
+		<div class="message-details">
+			<p1><strong>Subject:</strong> %s</p1>
+			<p1><strong>Submitted:</strong> %s</p1>
+		</div>
+		
+		<button class="back-button" onclick="window.location.href='/'">Return to Portfolio</button>
+		
+		<div class="footer">
+			<p>&copy; %d Samuel Omulo. All rights reserved.</p>
+		</div>
 	</div>
 	</body>
 	</html>
-	`, name, name, email, subject, message, time.Now().Year())
-	}
-
-// func handleAppointment(w http.ResponseWriter, r *http.Request) {
-// 	if r.Method != http.MethodPost {
-// 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-// 		return
-// 	}
-// 	// Parse form data
-// 	err := r.ParseForm()
-// 	if err != nil {
-// 		http.Error(w, "Error parsing form", http.StatusBadRequest)
-// 		return
-// 	}
-
-// 	// Initialize the bluemonday policy (this will sanitize HTML content)
-// 	p := bluemonday.UGCPolicy() // UGCPolicy allows a safe subset of HTML tags and attributes
-
-// 	// Sanitize form fields
-// 	name := p.Sanitize(r.FormValue("name"))
-// 	email := p.Sanitize(r.FormValue("email"))
-// 	mobile := p.Sanitize(r.FormValue("mobile"))
-// 	service := p.Sanitize(r.FormValue("service"))
-// 	date := p.Sanitize(r.FormValue("date"))
-// 	time := p.Sanitize(r.FormValue("time"))
-// 	message := p.Sanitize(r.FormValue("message"))
-
-// 	// Define regex patterns for validation
-// 	nameRegex := `^[a-zA-Z\s]+$`                                                                                // Only letters and spaces
-// 	emailRegex := `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`                                            // Email pattern
-// 	mobileRegex := `^\d{10}$`                                                                                   // Only digits, length 10-15 digits
-// 	dateRegex := `^(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])\/\d{4}$`                                           // Date in dd/mm/yyyy format
-// 	timeRegex := `^(?:([01]?[0-9]|2[0-3]):([0-5][0-9])(?:\s?(AM|PM|am|pm))?|([01]?[0-9]|2[0-3]):([0-5][0-9]))$` // Time in HH:MM format
-// 	messageRegex := `^.{10,500}$`                                                                               // Non-empty, max 500 characters
-
-// 	// Validate inputs using regex
-// 	if !regexp.MustCompile(nameRegex).MatchString(name) {
-// 		http.Error(w, "Invalid name. Only letters and spaces are allowed.", http.StatusBadRequest)
-// 		return
-// 	}
-
-// 	if !regexp.MustCompile(emailRegex).MatchString(email) {
-// 		http.Error(w, "Invalid email address.", http.StatusBadRequest)
-// 		return
-// 	}
-
-// 	if !regexp.MustCompile(mobileRegex).MatchString(mobile) {
-// 		http.Error(w, "Invalid mobile number. It must contain 10 digits.", http.StatusBadRequest)
-// 		return
-// 	}
-
-// 	if !regexp.MustCompile(dateRegex).MatchString(date) {
-// 		http.Error(w, "Invalid date. Please use the format dd/mm/yyyy.", http.StatusBadRequest)
-// 		return
-// 	}
-
-// 	if !regexp.MustCompile(timeRegex).MatchString(time) {
-// 		http.Error(w, "Invalid time. Please use the format HH:MM.", http.StatusBadRequest)
-// 		return
-// 	}
-
-// 	if !regexp.MustCompile(messageRegex).MatchString(message) {
-// 		http.Error(w, "Invalid message. It must be between 10 and 500 characters.", http.StatusBadRequest)
-// 		return
-// 	}
-
-// 	// Check if all fields are provided (redundant check since regex handles the format)
-// 	if name == "" || email == "" || mobile == "" || service == "" || date == "" || time == "" || message == "" {
-// 		http.Error(w, "All fields are required", http.StatusBadRequest)
-// 		return
-// 	}
-
-// 	// Configure email settings
-// 	from := "mcomulosammy37@gmail.com"
-// 	password := "inss cfcv agtz njhn" // Use an app-specific password
-// 	to := "mcomulosammy37@gmail.com"
-// 	smtpHost := "smtp.gmail.com"
-// 	smtpPort := "587"
-
-// 	// Compose the HTML email
-// 	emailSubject := "New Appointment Booking"
-// 	emailBody := fmt.Sprintf(`
-// 	<html>
-// 	<head>
-// 		<title>New Appointment Request</title>
-// 		<style>
-// 			body {
-// 				font-family: Arial, sans-serif;
-// 				color: #333;
-// 			}
-// 			.container {
-// 				max-width: 600px;
-// 				margin: 0 auto;
-// 				padding: 20px;
-// 				background: #f8f8f8;
-// 				border-radius: 8px;
-// 				box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-// 			}
-// 			.header {
-// 				background-color: #2196f3;
-// 				color: white;
-// 				padding: 10px 20px;
-// 				text-align: center;
-// 				border-radius: 8px 8px 0 0;
-// 			}
-// 			.footer {
-// 				background-color: #f1f1f1;
-// 				padding: 10px;
-// 				text-align: center;
-// 				margin-top: 20px;
-// 				font-size: 12px;
-// 				color: #888;
-// 				border-radius: 0 0 8px 8px;
-// 			}
-// 			.content {
-// 				padding: 20px;
-// 				background-color: white;
-// 				border-radius: 8px;
-// 			}
-// 			.content p {
-// 				font-size: 16px;
-// 				line-height: 1.5;
-// 			}
-// 		</style>
-// 	</head>
-// 	<body>
-// 		<div class="container">
-// 			<div class="header">
-// 				<h2>New Appointment Request</h2>
-// 			</div>
-// 			<div class="content">
-// 				<p><strong>Name:</strong> %s</p>
-// 				<p><strong>Email:</strong> %s</p>
-// 				<p><strong>Mobile:</strong> %s</p>
-// 				<p><strong>Service Requested:</strong> %s</p>
-// 				<p><strong>Preferred Date:</strong> %s</p>
-// 				<p><strong>Preferred Time:</strong> %s</p>
-// 				<p><strong>Description:</strong><br>%s</p>
-// 			</div>
-// 			<div class="footer">
-// 			    <p>&copy; 2024 Your Company Name. All rights reserved.</p>
-// 		</div>
-// 		</div>
-// 	</body>
-// 	</html>
-// 	`, name, email, mobile, service, date, time, message)
-
-// 	msg := []byte(fmt.Sprintf("To: %s\r\nSubject: %s\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n%s", to, emailSubject, emailBody))
-
-// 	// Authentication
-// 	auth := smtp.PlainAuth("", from, password, smtpHost)
-
-// 	// Send email
-// 	err = smtp.SendMail(smtpHost+":"+smtpPort, auth, from, []string{to}, msg)
-// 	if err != nil {
-// 		log.Printf("Error sending email: %v", err)
-// 		http.Error(w, "Failed to send email", http.StatusInternalServerError)
-// 		return
-// 	}
-
-// 	// Respond back with a success message in HTML format
-// 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-// 	w.WriteHeader(http.StatusOK)
-// 	fmt.Fprintf(w, `
-// 	<html>
-//     <head>
-//         <title>Appointment Confirmation</title>
-//         <link rel="stylesheet" href="css/popup_submeet.css">
-//     </head>
-//     <body>
-//         <div class="confirmation custom-confirmation">
-//             <h2>Appointment Successfully Booked!</h2>
-//             <p>Thank you, %s, for booking an appointment. I have received the following details:</p>
-//             <ul>
-//                 <li><strong>Name:</strong> %s</li>
-//                 <li><strong>Email:</strong> %s</li>
-//                 <li><strong>Mobile:</strong> %s</li>
-//                 <li><strong>Service:</strong> %s</li>
-//                 <li><strong>Date:</strong> %s</li>
-//                 <li><strong>Time:</strong> %s</li>
-//                 <li><strong>Message:</strong> %s</li>
-//             </ul>
-//             <button class="back-button custom-back-button" onclick="javascript:history.back()">Go Back</button>
-// 			<div class="footer">
-// 			<p align="center" >&copy; 2024 samuel omulo. All rights reserved.</p>
-// 		</div>
-//         </div>
-//         </div>
-//     </body>
-// </html>
-// 	`, name, name, email, mobile, service, date, time, message)
-// }
+	`, name, email, subject, formattedDate, currentTime.Year())
+}
