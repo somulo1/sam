@@ -189,7 +189,7 @@ func handleEmailSend(w http.ResponseWriter, r *http.Request) {
 
 	// Configure email settings
 	from := "mcomulosammy37@gmail.com"
-	password := "inss cfcv agtz njhn" // Consider using environment variables for this
+	password := "eptw taih ilqn srls" // Consider using environment variables for this
 	to := "mcomulosammy37@gmail.com"
 	smtpHost := "smtp.gmail.com"
 	smtpPort := "587"
